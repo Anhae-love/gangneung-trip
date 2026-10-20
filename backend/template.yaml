@@ -1,0 +1,80 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: 강릉 여행 계획 - 공유 일정 API (HTTP API + Lambda + DynamoDB)
+
+Parameters:
+  EditKey:
+    Type: String
+    Default: ""
+    NoEcho: true
+    Description: 편집 코드. 비워 두면 링크를 아는 누구나 편집할 수 있어요. 값을 넣으면 처음 편집할 때 이 코드를 물어봐요.
+  BedrockModelId:
+    Type: String
+    Default: ""
+    Description: "Claude 정보 받기/위치 찾기에 쓸 Bedrock 모델 ID 또는 추론 프로필 ID. 비워 두면 AI 기능이 꺼져요."
+  AllowedOrigin:
+    Type: String
+    Default: "*"
+    Description: 프런트엔드 주소 (예 https://main.xxxx.amplifyapp.com). 처음엔 * 로 두고 배포 후 바꿔도 돼요.
+
+Globals:
+  Function:
+    Runtime: nodejs20.x
+    Architectures: [arm64]
+    MemorySize: 256
+    Timeout: 60
+
+Resources:
+  TripTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+
+  TripApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      DefaultRouteSettings:
+        ThrottlingBurstLimit: 30
+        ThrottlingRateLimit: 15
+      CorsConfiguration:
+        AllowOrigins:
+          - !Ref AllowedOrigin
+        AllowHeaders: [content-type, x-edit-key]
+        AllowMethods: [GET, POST, PATCH, PUT, DELETE, OPTIONS]
+        MaxAge: 600
+
+  TripFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Handler: index.handler
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref TripTable
+          EDIT_KEY: !Ref EditKey
+          MODEL_ID: !Ref BedrockModelId
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref TripTable
+        - Statement:
+            - Effect: Allow
+              Action: [bedrock:InvokeModel]
+              Resource: "*"
+      Events:
+        GetState:   { Type: HttpApi, Properties: { ApiId: !Ref TripApi, Path: /state, Method: GET } }
+        AddPlace:   { Type: HttpApi, Properties: { ApiId: !Ref TripApi, Path: /places, Method: POST } }
+        EditPlace:  { Type: HttpApi, Properties: { ApiId: !Ref TripApi, Path: /places/{id}, Method: PATCH } }
+        DelPlace:   { Type: HttpApi, Properties: { ApiId: !Ref TripApi, Path: /places/{id}, Method: DELETE } }
+        SetTrip:    { Type: HttpApi, Properties: { ApiId: !Ref TripApi, Path: /trip, Method: PUT } }
+        AskClaude:  { Type: HttpApi, Properties: { ApiId: !Ref TripApi, Path: /ai, Method: POST } }
+
+Outputs:
+  ApiUrl:
+    Description: frontend/config.js 의 apiUrl 에 넣을 주소
+    Value: !Sub "https://${TripApi}.execute-api.${AWS::Region}.amazonaws.com"
