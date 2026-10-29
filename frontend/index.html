@@ -62,7 +62,17 @@ h1 small{display:block;font-family:var(--body);font-size:12px;font-weight:500;le
 .chip:hover{border-color:var(--sea);color:var(--sea)}
 @media (max-width:820px){.add form{grid-template-columns:1fr 1fr}.add form .name,.add form .memo{grid-column:1/-1}.add form .btn{grid-column:1/-1}.fcand{padding-block:8px}}
 
-.board{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:16px;align-items:start}
+/* Carousel: 항상 한 번에 한 일차씩 넘어가는 swipe carousel */
+.board-wrap{position:relative}
+.carousel-nav{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
+.carousel-nav .day-count{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;min-width:60px;text-align:center}
+.carousel-arrow{background:var(--surface);border:1px solid var(--line);border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;transition:background .15s,border-color .15s}
+.carousel-arrow:hover:not(:disabled){background:var(--sea-soft);border-color:var(--sea)}
+.carousel-arrow:disabled{opacity:.3;cursor:default}
+.board{display:flex;overflow:hidden;scroll-snap-type:x mandatory;gap:0;align-items:start;scrollbar-width:none;overscroll-behavior-x:contain;cursor:grab;user-select:none}
+.board.dragging{cursor:grabbing;scroll-behavior:auto}
+.board::-webkit-scrollbar{display:none}
+.board .day{flex:0 0 100%;scroll-snap-align:start;min-width:0;padding:0 2px}
 .day{display:flex;flex-direction:column;gap:8px;min-width:0}
 .day h2{font-family:var(--display);font-size:20px;margin:0;display:flex;align-items:baseline;gap:8px}
 .day h2 .date{font-family:var(--body);font-size:12px;color:var(--muted);font-weight:500;letter-spacing:.04em}
@@ -112,6 +122,12 @@ h1 small{display:block;font-family:var(--body);font-size:12px;font-weight:500;le
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:8px;font-size:13px;max-width:calc(100% - 32px)}
 @media (prefers-reduced-motion:no-preference){.card{transition:border-color .15s}}
 
+@media (max-width:700px){
+  .carousel-arrow{width:30px;height:30px}
+}
+@media (max-width:600px){
+  .board .day{padding:0}
+}
 .mapbox{background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden;display:flex;flex-direction:column}
 .maphead{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--line)}
 .maphead h2{font-family:var(--display);font-size:18px;margin:0 8px 0 0}
@@ -129,16 +145,10 @@ h1 small{display:block;font-family:var(--body);font-size:12px;font-weight:500;le
 #map .ref{font-size:12px;fill:var(--muted)}
 #map .sea-l{font-family:var(--display);font-size:22px;fill:var(--sea);opacity:.55;letter-spacing:.3em}
 .mapnote{font-size:12px;color:var(--muted);padding:8px 12px;border-top:1px solid var(--line)}
-.daytabs{display:none}
-@media (max-width:700px){
-  .daytabs{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin-bottom:-6px}
-  .daytabs::-webkit-scrollbar{display:none}
-  .daytabs button{flex:none;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:4px 12px;font-size:13px;color:var(--muted)}
-  .daytabs button[aria-current="true"]{color:var(--ink);border-color:var(--ink);font-weight:600}
-  .board{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:12px;align-items:flex-start;scrollbar-width:none;overscroll-behavior-x:contain}
-  .board::-webkit-scrollbar{display:none}
-  .board .day{flex:0 0 calc(100% - 28px);scroll-snap-align:start;min-width:0}
-}
+.daytabs{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin-bottom:-6px}
+.daytabs::-webkit-scrollbar{display:none}
+.daytabs button{flex:none;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:4px 12px;font-size:13px;color:var(--muted)}
+.daytabs button[aria-current="true"]{color:var(--ink);border-color:var(--ink);font-weight:600}
 @media (max-width:600px){
   .wrap{padding-block:14px 48px;gap:14px}
   header{padding-bottom:10px;gap:8px}
@@ -157,7 +167,6 @@ h1 small{display:block;font-family:var(--body);font-size:12px;font-weight:500;le
   .ideas::-webkit-scrollbar{display:none}
   .ideas .chip{flex:none}
   .ideas span.lbl{flex:none}
-  .board{gap:14px}
   .day{gap:4px}
   .day h2{font-size:17px}
   .list{padding-left:8px}
@@ -197,7 +206,18 @@ h1 small{display:block;font-family:var(--body);font-size:12px;font-weight:500;le
   </section>
 
   <nav class="daytabs" id="dayTabs" aria-label="일차 이동"></nav>
-  <main class="board" id="board"></main>
+  <div class="board-wrap">
+    <div class="carousel-nav" id="carouselNav">
+      <button class="carousel-arrow" id="arrowPrev" aria-label="이전 일차" disabled>
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M10 3L5 8L10 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <span class="day-count" id="dayCount">1 / 2</span>
+      <button class="carousel-arrow" id="arrowNext" aria-label="다음 일차">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6 3L11 8L6 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+    <main class="board" id="board"></main>
+  </div>
 
   <section class="mapbox" aria-label="지도">
     <div class="maphead" id="mapHead"><h2>지도</h2></div>
@@ -293,7 +313,11 @@ function card(p){
 }
 function render(){
   const cols=[];for(let d=1;d<=trip.days;d++)cols.push(d);cols.push(0);
-  const bd=$("#board"),sl=bd.scrollLeft;
+  const bd=$("#board");
+  // 현재 보이는 일차 인덱스 기억 (렌더 후 복원)
+  const prevSecs=[...bd.querySelectorAll(".day")];
+  const prevIdx=bd.clientWidth>0?Math.round(bd.scrollLeft/bd.clientWidth):0;
+  const prevDay=prevSecs[prevIdx]?.dataset.day;
   const shownCols=cols.filter(d=>d!==0||places.some(p=>(p.day>trip.days?0:p.day)===0));
   $("#dayTabs").innerHTML=shownCols.map(d=>`<button type="button" data-goto="${d}"><span class="dot" style="background:${DAYC(d)}"></span>${dayLabel(d).t}</button>`).join("");
   bd.innerHTML=cols.map(d=>{
@@ -303,18 +327,79 @@ function render(){
     return `<section class="day${d===0?" undecided":""}" data-day="${d}"><h2>${L.t}${L.date?`<span class="date">${L.date}</span>`:""}<span class="n">${items.length}곳</span></h2>
       <div class="list">${items.length?items.map(card).join(""):`<div class="empty">${places.length?"아직 이 날 갈 곳이 없어요.":"위에서 첫 장소를 추가해 보세요."}</div>`}</div></section>`;
   }).join("");
-  bd.scrollLeft=sl;syncTabs();
+  // 이전에 보던 일차로 복원 (애니메이션 없이)
+  if(prevDay){const newSecs=[...bd.querySelectorAll(".day")];const ri=newSecs.findIndex(s=>s.dataset.day===prevDay);if(ri>=0)bd.scrollLeft=ri*bd.clientWidth;}
+  syncTabs();
   renderIdeas();
   renderMap();
 }
 function syncTabs(){
   const bd=$("#board"),secs=[...bd.querySelectorAll(".day")];if(!secs.length)return;
-  let cur=secs[0];for(const sc of secs){if(sc.offsetLeft-bd.offsetLeft<=bd.scrollLeft+bd.clientWidth/2-20)cur=sc}
+  // 현재 스크롤 위치로 활성 인덱스 계산
+  const idx=Math.round(bd.scrollLeft/bd.clientWidth);
+  const cur=secs[Math.min(idx,secs.length-1)];
   $("#dayTabs").querySelectorAll("button").forEach(b=>b.setAttribute("aria-current",b.dataset.goto===cur.dataset.day?"true":"false"));
+  // 화살표 + 카운터 업데이트
+  $("#arrowPrev").disabled=idx<=0;
+  $("#arrowNext").disabled=idx>=secs.length-1;
+  $("#dayCount").textContent=`${idx+1} / ${secs.length}`;
+}
+function carouselTo(idx){
+  const bd=$("#board"),secs=[...bd.querySelectorAll(".day")];if(!secs.length)return;
+  const target=Math.max(0,Math.min(idx,secs.length-1));
+  bd.scrollTo({left:target*bd.clientWidth,behavior:matchMedia("(prefers-reduced-motion:reduce)").matches?"auto":"smooth"});
+}
+function carouselDelta(delta){
+  const bd=$("#board"),secs=[...bd.querySelectorAll(".day")];if(!secs.length)return;
+  const cur=Math.round(bd.scrollLeft/bd.clientWidth);
+  carouselTo(cur+delta);
 }
 $("#board").addEventListener("scroll",()=>{cancelAnimationFrame(syncTabs.r);syncTabs.r=requestAnimationFrame(syncTabs)},{passive:true});
-$("#dayTabs").addEventListener("click",e=>{const b=e.target.closest("[data-goto]");if(!b)return;const sc=$(`#board .day[data-day="${b.dataset.goto}"]`);const bd=$("#board");
-  if(sc)bd.scrollTo({left:sc.offsetLeft-bd.offsetLeft,behavior:matchMedia("(prefers-reduced-motion:reduce)").matches?"auto":"smooth"})});
+// 탭 클릭: 해당 일차 섹션 인덱스로 이동
+$("#dayTabs").addEventListener("click",e=>{
+  const b=e.target.closest("[data-goto]");if(!b)return;
+  const secs=[...$("#board").querySelectorAll(".day")];
+  const idx=secs.findIndex(s=>s.dataset.day===b.dataset.goto);
+  if(idx>=0)carouselTo(idx);
+});
+// 화살표 버튼
+$("#arrowPrev").addEventListener("click",()=>carouselDelta(-1));
+$("#arrowNext").addEventListener("click",()=>carouselDelta(1));
+// 키보드 좌우 화살표로도 이동
+$("#board").addEventListener("keydown",e=>{
+  if(e.key==="ArrowLeft"){e.preventDefault();carouselDelta(-1)}
+  else if(e.key==="ArrowRight"){e.preventDefault();carouselDelta(1)}
+});
+// 마우스 드래그 (데스크톱)
+{
+  let startX=0,startScroll=0,dragging=false,moved=false;
+  $("#board").addEventListener("mousedown",e=>{
+    if(e.button!==0)return;
+    // 카드 내부 버튼/input 등은 드래그 무시
+    if(e.target.closest("button,input,select,textarea,a"))return;
+    dragging=true;moved=false;startX=e.clientX;startScroll=$("#board").scrollLeft;
+    $("#board").classList.add("dragging");
+  });
+  window.addEventListener("mousemove",e=>{
+    if(!dragging)return;
+    const dx=e.clientX-startX;
+    if(Math.abs(dx)>4)moved=true;
+    if(moved)$("#board").scrollLeft=startScroll-dx;
+  });
+  window.addEventListener("mouseup",e=>{
+    if(!dragging)return;
+    dragging=false;
+    $("#board").classList.remove("dragging");
+    if(moved){
+      // snap: 속도/방향으로 한 칸 이동
+      const bd=$("#board"),secs=[...bd.querySelectorAll(".day")];
+      const dx=e.clientX-startX;
+      const cur=Math.round(startScroll/bd.clientWidth);
+      if(Math.abs(dx)>40)carouselTo(dx<0?cur+1:cur-1);
+      else carouselTo(cur);
+    }
+  });
+}
 const effDay=p=>(p.day>trip.days||!(p.day>=0))?0:p.day;
 function routeStops(d){return places.filter(p=>effDay(p)===d&&!p.cand&&okCoord(p.lat,p.lng)).sort((a,b)=>sortKey(a)<sortKey(b)?-1:1)}
 function dayStops(d){return places.filter(p=>effDay(p)===d&&!isStay(p)&&!p.cand&&okCoord(p.lat,p.lng)).sort((a,b)=>sortKey(a)<sortKey(b)?-1:1)}
@@ -502,55 +587,103 @@ $("#start").addEventListener("change",()=>{trip.start=$("#start").value;render()
 
 renderForm();render();
 
-// ---- 서버 연결 (AWS API) ----
-// 원래 Claude 아티팩트의 db / sample 기능을 같은 모양으로 흉내 내서 위쪽 화면 코드는 그대로 씁니다.
-const API=(window.APP_CONFIG&&window.APP_CONFIG.apiUrl||"").replace(/\/+$/,"");
-const POLL_MS=(window.APP_CONFIG&&window.APP_CONFIG.pollMs)||4000;
+// ---- 서버 연결 (Supabase REST) ----
+// 라이브러리 없이 fetch 로 Supabase REST API 를 직접 호출합니다. (GitHub Pages 같은 정적 호스팅에 그대로 올라감)
+// 화면 코드가 쓰는 db / sample 인터페이스를 Firebase 모양으로 흉내 내서, 위쪽 코드는 그대로 둡니다.
+const CFG=window.APP_CONFIG||{};
+const SB_URL=(CFG.supabaseUrl||"").replace(/\/+$/,"");
+const SB_KEY=CFG.supabaseAnonKey||"";
+const REST=SB_URL+"/rest/v1";
+const POLL_MS=CFG.pollMs||4000;
+// 편집 암호: config.js 의 editKey 가 있으면, 사용자가 같은 값을 한 번 입력해야 편집 가능 (브라우저에 기억)
+const APP_EDIT_KEY=(CFG.editKey||"").trim();
 const KEY_STORE="gangneung-edit-key";
 function getKey(){try{return localStorage.getItem(KEY_STORE)||""}catch{return ""}}
 function setKey(v){try{v?localStorage.setItem(KEY_STORE,v):localStorage.removeItem(KEY_STORE)}catch{}}
-let needKey=false;
-async function api(method,path,body,retried){
-  const headers={"content-type":"application/json"};const k=getKey();if(k)headers["x-edit-key"]=k;
-  let r;
-  try{r=await fetch(API+path,{method,headers,body:body?JSON.stringify(body):undefined})}
-  catch{throw {code:"unavailable",message:"서버에 연결할 수 없어요."}}
-  let data={};try{data=await r.json()}catch{}
-  if(r.status===403&&data.code==="bad_key"&&!retried){
-    const v=window.prompt(getKey()?"편집 코드가 맞지 않아요. 다시 입력해 주세요.":"편집 코드를 입력해 주세요.");
-    if(v){setKey(v.trim());return api(method,path,body,true)}
-    throw {code:"invalid_argument",message:"편집 코드가 필요해요."};
-  }
-  if(r.status===403){setKey("");throw {code:"invalid_argument",message:data.error||"편집 코드가 맞지 않아요."}}
-  if(r.status===429)throw {code:"rate_limited",message:data.error};
-  if(r.status===409)throw {code:"quota_exceeded",message:data.error};
-  if(r.status===501)throw {code:"sampling_disabled",message:data.error};
-  if(!r.ok)throw {code:r.status===404?"not_found":"upstream_error",message:data.error||("오류 "+r.status)};
-  return data;
+let needKey=!!APP_EDIT_KEY;
+// 쓰기 전에 편집 암호 확인 (클라이언트 측 간단 잠금). 읽기는 누구나.
+function ensureEditAllowed(){
+  if(!APP_EDIT_KEY)return true;
+  if(getKey()===APP_EDIT_KEY)return true;
+  const v=window.prompt("편집하려면 편집 암호를 입력해 주세요.");
+  if(v&&v.trim()===APP_EDIT_KEY){setKey(v.trim());return true}
+  if(v!==null)toast("편집 암호가 맞지 않아요.");
+  throw {code:"invalid_argument",message:"편집 암호가 필요해요."};
 }
-// 상태를 주기적으로 받아와 구독자에게 전달 (실시간 대신 짧은 간격 폴링)
-const subs={places:[],trip:[]};let lastState=null,pollTimer=null;
+// Supabase REST 호출
+async function sb(method,pathAndQuery,body,extraHeaders){
+  if(!SB_URL||!SB_KEY)throw {code:"unavailable",message:"Supabase 설정이 없어요."};
+  const headers={apikey:SB_KEY,Authorization:"Bearer "+SB_KEY,"content-type":"application/json",...(extraHeaders||{})};
+  let r;
+  try{r=await fetch(REST+pathAndQuery,{method,headers,body:body?JSON.stringify(body):undefined})}
+  catch{throw {code:"unavailable",message:"서버에 연결할 수 없어요."}}
+  if(r.status===401||r.status===403)throw {code:"invalid_argument",message:"권한이 없어요. (키/정책 확인)"};
+  if(!r.ok){let m="오류 "+r.status;try{m=(await r.json()).message||m}catch{}throw {code:"upstream_error",message:m}}
+  if(r.status===204)return null;
+  try{return await r.json()}catch{return null}
+}
+
+// 상태 폴링: places 테이블과 trip(1행)을 주기적으로 읽어 구독자에게 전달
+const subs={places:[],trip:[]};let pollTimer=null;
 async function refresh(){
   try{
-    const st=await api("GET","/state");lastState=st;needKey=!!st.needKey;
-    if(!st.ai)sample=null;
-    const tripSnap={exists:true,data:()=>st.trip};
-    const placeSnap={docs:st.places.map(p=>({id:p.id,data:()=>{const {id,...rest}=p;return rest}}))};
+    const [placesRows,tripRows]=await Promise.all([
+      sb("GET","/places?select=*&order=created_at.asc"),
+      sb("GET","/trip?id=eq.1&select=*"),
+    ]);
+    sample=null; // Supabase 버전은 AI(Claude) 기능 없음
+    const t=(tripRows&&tripRows[0])||{};
+    const tripSnap={exists:true,data:()=>({days:t.days??2,start:t.start||""})};
+    // DB 행(snake/ JSON) → 화면이 쓰는 모양으로
+    const placeSnap={docs:(placesRows||[]).map(row=>({
+      id:row.id,
+      data:()=>({
+        name:row.name,cat:row.cat,day:row.day,time:row.time||"",memo:row.memo||"",
+        lat:row.lat??undefined,lng:row.lng??undefined,
+        pinned:row.pinned||undefined,cand:row.cand||undefined,approx:row.approx??undefined,
+        by:row.by||undefined,createdAt:row.created_at?Date.parse(row.created_at):undefined,
+        info:row.info||undefined,
+      }),
+    }))};
     subs.trip.forEach(f=>f(tripSnap));subs.places.forEach(f=>f(placeSnap));
+    if(!readOnly)$("#status").textContent=`함께 보는 중 · ${(placesRows||[]).length}곳`;
   }catch(e){$("#status").textContent="서버에 연결할 수 없어요. 잠시 후 다시 시도해요.";}
 }
 function startPolling(){clearInterval(pollTimer);pollTimer=setInterval(()=>{if(!document.hidden)refresh()},POLL_MS)}
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)refresh()});
 const after=(p)=>p.then(v=>{refresh();return v});
+
+// 화면 코드가 쓰는 필드 → DB 컬럼으로 변환 (createdAt→created_at 등)
+function toRow(doc){
+  const r={};
+  if("name" in doc)r.name=doc.name;
+  if("cat" in doc)r.cat=doc.cat;
+  if("day" in doc)r.day=doc.day;
+  if("time" in doc)r.time=doc.time;
+  if("memo" in doc)r.memo=doc.memo;
+  if("lat" in doc)r.lat=doc.lat;
+  if("lng" in doc)r.lng=doc.lng;
+  if("pinned" in doc)r.pinned=doc.pinned;
+  if("cand" in doc)r.cand=doc.cand;
+  if("approx" in doc)r.approx=doc.approx;
+  if("by" in doc)r.by=doc.by;
+  if("info" in doc)r.info=doc.info;
+  if("createdAt" in doc)r.created_at=new Date(doc.createdAt).toISOString();
+  return r;
+}
 function makeDb(){
   return {
     collection(name){
       if(name!=="places")throw new Error("unknown collection "+name);
       return {
-        add:(doc)=>after(api("POST","/places",doc)).then(r=>({id:r.id})),
+        add:(doc)=>{ensureEditAllowed();return after(
+          sb("POST","/places",toRow(doc),{Prefer:"return=representation"})
+        ).then(rows=>({id:rows&&rows[0]&&rows[0].id}))},
         doc:(id)=>({
-          update:(data)=>after(api("PATCH","/places/"+encodeURIComponent(id),data)),
-          delete:()=>after(api("DELETE","/places/"+encodeURIComponent(id))),
+          update:(data)=>{ensureEditAllowed();return after(
+            sb("PATCH","/places?id=eq."+encodeURIComponent(id),toRow(data)))},
+          delete:()=>{ensureEditAllowed();return after(
+            sb("DELETE","/places?id=eq."+encodeURIComponent(id)))},
         }),
         onSnapshot:(next)=>{subs.places.push(next);return()=>{}},
       };
@@ -558,29 +691,20 @@ function makeDb(){
     doc(path){
       if(path!=="meta/trip")throw new Error("unknown doc "+path);
       return {
-        set:(data)=>after(api("PUT","/trip",data)),
+        set:(data)=>{ensureEditAllowed();return after(
+          sb("POST","/trip?on_conflict=id",{id:1,days:data.days,start:data.start||null},
+             {Prefer:"resolution=merge-duplicates"}))},
         onSnapshot:(next)=>{subs.trip.push(next);return()=>{}},
       };
     },
   };
 }
-// Claude 호출 (서버의 /ai 가 Amazon Bedrock 으로 전달)
-function parseLooseJson(text){
-  try{return JSON.parse(text)}catch{}
-  const f=text.match(/```(?:json)?\s*([\s\S]*?)```/);if(f){try{return JSON.parse(f[1])}catch{}}
-  const a=text.search(/[\[{]/),b=Math.max(text.lastIndexOf("}"),text.lastIndexOf("]"));
-  if(a>=0&&b>a){try{return JSON.parse(text.slice(a,b+1))}catch{}}
-  throw {code:"invalid_json",message:"JSON을 읽지 못했어요.",text};
-}
-function makeSample(){
-  const fn=async(prompt)=>({text:(await api("POST","/ai",{prompt})).text,truncated:false});
-  fn.json=async(prompt)=>parseLooseJson((await api("POST","/ai",{prompt})).text);
-  return fn;
-}
 
 (async()=>{
-  if(!API){$("#status").textContent="config.js 에 apiUrl 을 넣어 주세요.";$("#addBtn").disabled=true;return}
-  db=makeDb();sample=makeSample();user=null;
+  if(!SB_URL||!SB_KEY||SB_URL.includes("xxxxxxxx")){
+    $("#status").textContent="config.js 에 Supabase URL/키를 넣어 주세요.";$("#addBtn").disabled=true;return;
+  }
+  db=makeDb();sample=null;user=null;
   db.doc("meta/trip").onSnapshot(s=>{
     if(s.exists){const d=s.data();trip.days=Math.max(1,Math.min(10,+d.days||2));trip.start=d.start||"";
       if(document.activeElement!==$("#days"))$("#days").value=trip.days;
